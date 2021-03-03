@@ -82,7 +82,7 @@ def getYHat(zs):
     return y_hat
 
 def getError(y_te, y_hat):
-    no_data = y_te.shape[0]
+    no_data = y_te.shape[1]
     err_mat = np.dot(y_te.T, np.log(y_hat))/no_data
     err = -np.mean(err_mat)
     return err
@@ -90,16 +90,18 @@ def getError(y_te, y_hat):
 def forward_prop (x, y, weightsAndBiases):
     Ws, bs = unpack(weightsAndBiases)
 
-    zs=np.zeros((NUM_HIDDEN_LAYERS, len(x), NUM_HIDDEN)) 
+    zs=np.zeros((NUM_HIDDEN_LAYERS, NUM_HIDDEN, len(x.T))) 
+    # zs = copy.deepcopy(Ws)
     hs=[] 
-    hs.append(x.T)
+    hs.append(x)
     
-    for i in range (NUM_HIDDEN_LAYERS - 1):
-        zs[i]=(np.dot(Ws[i], hs[-1]).T+bs[i]) ######## Extra Transpose
-        hs.append(relu(zs[i]).T)
-    yhat=getYHat(zs[-1]) # OR h[-1] ??????
+    for i in range (NUM_HIDDEN_LAYERS):
+        zs[i]=(np.dot(Ws[i], hs[i]).T + bs[i]).T ######## Extra Transpose
+        hs.append(relu(zs[i]))
+    yhat=getYHat(zs[-1]) 
     
-    loss = getError(y, yhat)
+    loss = getError(y, yhat)  #### Possible???
+    
     # Return loss, pre-activations, post-activations, and predictions
     return loss, zs, hs, yhat
    
@@ -110,14 +112,13 @@ def back_prop (x, y, weightsAndBiases, alpha = 0.01):
     dJdWs = copy.deepcopy(Ws)  # Gradients w.r.t. weights   # Just for dimentions, deepcopy
     dJdbs = copy.deepcopy(bs)  # Gradients w.r.t. biases    # Just for dimentions, deepcopy
 
-    g = (yhat - y).T
+    g = (yhat - y)
     for i in range(NUM_HIDDEN_LAYERS -1, -1, -1):  
-        g = g*relu_d(zs[i].T)
+        g = g*relu_d(zs[i])
         dJdbs[i] = np.mean(g, axis=1)
-        dJdWs[i] = np.dot(g, hs[i].T) + alpha*Ws[i]/len(x) 
-                                ########## i-1????????????/
+        dJdWs[i] = np.dot(g, hs[i].T) + alpha*Ws[i]/len(x[0]) 
         g = np.dot(Ws[i].T,g)
-
+    print(np.mean(dJdWs[-1]))
     # Concatenate gradients
     return np.hstack([ dJdW.flatten() for dJdW in dJdWs ] + [ dJdb.flatten() for dJdb in dJdbs ]) 
 
@@ -276,15 +277,15 @@ def loadDataset():
     no_data = X_tr_raw.shape[0]
 
     brightness_value = 256
-    X_te = X_te_raw/brightness_value
-    X_tr = X_tr_raw/brightness_value
+    X_te = (X_te_raw/brightness_value).T
+    X_tr = (X_tr_raw/brightness_value).T
     
-    y_tr = np.zeros([X_tr_raw.shape[0], NUM_OUTPUT])
-    y_tr_raw = (np.atleast_2d(y_tr_raw).T)
+    y_tr = (np.zeros([X_tr_raw.shape[0], NUM_OUTPUT])).T
+    y_tr_raw = (np.atleast_2d(y_tr_raw))
     np.put_along_axis(y_tr, y_tr_raw, 1, axis=1)
     
-    y_te = np.zeros([X_te_raw.shape[0], NUM_OUTPUT])
-    y_te_raw = (np.atleast_2d(y_te_raw).T)
+    y_te = (np.zeros([X_te_raw.shape[0], NUM_OUTPUT])).T
+    y_te_raw = (np.atleast_2d(y_te_raw))
     np.put_along_axis(y_te, y_te_raw, 1, axis=1)
     return X_te, y_te, X_tr, y_tr
 
@@ -300,10 +301,10 @@ if __name__ == "__main__":
     trainX, trainY, testX, testY = loadDataset()
 
     # Perform gradient check on random training examples
-    print(scipy.optimize.check_grad(lambda wab: forward_prop(np.atleast_2d(trainX[0:5]), np.atleast_2d(trainY[0:5]), wab)[0], \
-                                    lambda wab: back_prop(np.atleast_2d(trainX[0:5]), np.atleast_2d(trainY[0:5]), wab), \
+    print(scipy.optimize.check_grad(lambda wab: forward_prop(np.atleast_2d(trainX[:,0:5]), np.atleast_2d(trainY[:,0:5]), wab)[0], \
+                                    lambda wab: back_prop(np.atleast_2d(testX[:,0:5]), np.atleast_2d(testY[:,0:5]), wab), \
                                     weightsAndBiases))
-    stoch_grad_regression(trainX, trainY, weightsAndBiases)
+    # stoch_grad_regression(trainX, trainY, weightsAndBiases)
 
     # weightsAndBiases, trajectory = train(trainX, trainY, weightsAndBiases, testX, testY)
     
