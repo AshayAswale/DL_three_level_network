@@ -3,12 +3,20 @@ import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
 import scipy.optimize
 import copy
+import random
 
 # For this assignment, assume that every hidden layer has the same number of neurons.
 NUM_HIDDEN_LAYERS = 3
 NUM_INPUT = 784
 NUM_HIDDEN = 10
 NUM_OUTPUT = 10
+
+
+def random_rearrange (X_tr, y_tr, seed):
+    np.random.seed(seed)
+    np.random.shuffle(X_tr)
+    np.random.seed(seed)
+    np.random.shuffle(y_tr)
 
 # Unpack a list of weights and biases into their individual np.arrays.
 def unpack (weightsAndBiases):
@@ -62,10 +70,10 @@ def relu(z):
     return np.maximum(0, z)
 
 def relu_d(z):
-    ans=z.copy()
-    ans[ans<=0]=0
-    ans[ans>0]=1
-    return ans
+    h_tild=np.zeros((z.shape))
+    h_tild[h_tild<=0]=0
+    h_tild[h_tild>0]=1
+    return h_tild
 
 def getYHat(zs):
     exp_z = np.exp(zs)
@@ -102,30 +110,96 @@ def back_prop (x, y, weightsAndBiases, alpha = 0.01):
     dJdWs = copy.deepcopy(Ws)  # Gradients w.r.t. weights   # Just for dimentions, deepcopy
     dJdbs = copy.deepcopy(bs)  # Gradients w.r.t. biases    # Just for dimentions, deepcopy
 
-    # TODO    
-    # dJdWs[-1] = hs[-1]
-    # for i in hs:
-    #     print(i.shape)
     g = (yhat - y).T
     for i in range(NUM_HIDDEN_LAYERS -1, -1, -1):  
-        # print(i)
         g = g*relu_d(zs[i].T)
-        # print(g.shape)
         dJdbs[i] = np.mean(g, axis=1)
-        # print((alpha*Ws[i]/len(x)).shape)
-        # print(g.shape)
-        # print(hs[i-1].shape)
-        dJdWs[i] = np.dot(g, hs[i].T) + alpha*Ws[i]/len(x) ##### Regularization 
+        dJdWs[i] = np.dot(g, hs[i].T) + alpha*Ws[i]/len(x) 
                                 ########## i-1????????????/
-        # print(dJdWs[i].shape)
         g = np.dot(Ws[i].T,g)
 
     # Concatenate gradients
-    # print(dJdWs[0].shape)
-    # print(Ws[0].shape)
-    # print(dJdbs[0].shape)
-    # print(bs[0].shape)
     return np.hstack([ dJdW.flatten() for dJdW in dJdWs ] + [ dJdb.flatten() for dJdb in dJdbs ]) 
+
+
+def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
+
+    no_data = X_tr.shape[0]
+    no_features = X_tr.shape[1]
+    X_tr_raw = X_tr
+    y_tr_raw = y_tr
+    vald_perct = 80
+    vald_num = (int)(no_data*vald_perct/100)
+
+    # Step 1, random w and b generation
+
+    # Randomizing the data
+    randint = (random.randint(1, 99))
+    random_rearrange(X_tr, y_tr, randint) #seed can be any random number
+
+    ###############################
+    #### Final Training Tuning ####
+    ###############################
+    # value = int (input("Enter 1 for hyperparameter tuning\nEnter 2 for training on the tuned hyperparameters\n"))
+    
+    # if (value == 1):
+    #     print("Tuning Hyperparameters!")
+    #     n_squig, eps, alpha, epochs = double_cross_validation(X_tr, y_tr)
+    # else:
+    #     print("Training using pretuned hyperparameters")
+    n_squig, eps, alpha, epochs = 160, 0.1, 0.05, 500
+
+
+    X_tr = X_tr_raw[0:vald_num]
+    X_tr_vald = X_tr_raw[vald_num:]
+    y_tr = y_tr_raw[0:vald_num]
+    y_tr_vald = y_tr_raw[vald_num:]
+
+
+    no_data = X_tr.shape[0]
+
+    for epoch in range(0, epochs):
+        print("Epoch:", epoch)
+        print("Validation Error:",test_data(X_tr_vald, y_tr_vald, weightsAndBiases))
+        data_remain = True
+        n_curr = 0
+        n_next = n_squig
+        i = 0
+        while(data_remain):
+            # print(i)
+            i+=1
+            X_tr_temp = X_tr[n_curr:(min(n_next, no_data))]
+            y_tr_temp = y_tr[n_curr:(min(n_next, no_data))]
+            n_curr = n_next
+            n_next += n_squig
+
+            data_remain = True if n_next<no_data else False
+            
+            dwdbs = back_prop(X_tr, y_tr, weightsAndBiases, alpha)
+            print(np.mean(dwdbs))
+            # print(weightsAndBiases)
+            # print(dwdbs)
+            weightsAndBiases -= eps*dwdbs
+            # print(weightsAndBiases)
+            # exit()
+            
+            
+            
+    return w,b
+        
+
+def test_data(X_te, y_te, weightsAndBiases):
+    y_te_raw = np.argmax(y_te, axis=1)
+    loss, zs, hs, y_hat = forward_prop(X_te, y_te, weightsAndBiases)
+    
+    y_cat = np.argmax(y_hat, axis=1)
+    err_mat = y_cat - y_te_raw
+    count = np.count_nonzero(err_mat == 0)
+    no_of_data = y_te.shape[0]
+    perct = count/no_of_data*100
+
+    return loss, perct
+
 
 def train (trainX, trainY, weightsAndBiases, testX, testY):
     NUM_EPOCHS = 100
@@ -229,6 +303,7 @@ if __name__ == "__main__":
     print(scipy.optimize.check_grad(lambda wab: forward_prop(np.atleast_2d(trainX[0:5]), np.atleast_2d(trainY[0:5]), wab)[0], \
                                     lambda wab: back_prop(np.atleast_2d(trainX[0:5]), np.atleast_2d(trainY[0:5]), wab), \
                                     weightsAndBiases))
+    stoch_grad_regression(trainX, trainY, weightsAndBiases)
 
     # weightsAndBiases, trajectory = train(trainX, trainY, weightsAndBiases, testX, testY)
     
