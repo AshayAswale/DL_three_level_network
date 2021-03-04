@@ -6,17 +6,17 @@ import copy
 import random
 
 # For this assignment, assume that every hidden layer has the same number of neurons.
-NUM_HIDDEN_LAYERS = 3
+NUM_HIDDEN_LAYERS = 1
 NUM_INPUT = 784
 NUM_HIDDEN = 10
 NUM_OUTPUT = 10
 
 
-def random_rearrange (X_tr, y_tr, seed):
-    np.random.seed(seed)
-    np.random.shuffle(X_tr)
-    np.random.seed(seed)
-    np.random.shuffle(y_tr)
+# def random_rearrange (X_tr, y_tr, seed):
+#     np.random.seed(seed)
+#     np.random.shuffle(X_tr)
+#     np.random.seed(seed)
+#     np.random.shuffle(y_tr)
 
 # Unpack a list of weights and biases into their individual np.arrays.
 def unpack (weightsAndBiases):
@@ -66,40 +66,44 @@ def unpack (weightsAndBiases):
 
     return Ws, bs
 
+#Checked
 def relu(z):
     return np.maximum(0, z)
 
+#Checked
 def relu_d(z):
-    h_tild=np.zeros((z.shape))
+    h_tild=copy.deepcopy(z)
     h_tild[h_tild<=0]=0
     h_tild[h_tild>0]=1
     return h_tild
 
+#Checked
 def getYHat(zs):
     exp_z = np.exp(zs)
-    exp_z_sums = np.sum(exp_z, axis=1)
-    y_hat = (exp_z.T/exp_z_sums).T
+    exp_z_sums = np.sum(exp_z, axis=0)
+    y_hat = (exp_z/exp_z_sums)
     return y_hat
 
+### Possible Bug!!!!!!!!
 def getError(y_te, y_hat):
+    cee = (-(np.sum(y_te*np.log(y_hat)))/y_hat.shape[1])
+    ### THIS OR THAT????
     no_data = y_te.shape[1]
-    err_mat = np.dot(y_te.T, np.log(y_hat))/no_data
-    err = -np.mean(err_mat)
+    err_mat = np.dot(y_te.T, np.log(y_hat))
+    err = -np.sum(err_mat)/no_data
     return err
 
 def forward_prop (x, y, weightsAndBiases):
     Ws, bs = unpack(weightsAndBiases)
 
-    zs=np.zeros((NUM_HIDDEN_LAYERS, NUM_HIDDEN, len(x.T))) 
-    # zs = copy.deepcopy(Ws)
+    zs=[]
     hs=[] 
-    hs.append(x)
     
-    for i in range (NUM_HIDDEN_LAYERS):
-        zs[i]=(np.dot(Ws[i], hs[i]).T + bs[i]).T ######## Extra Transpose
-        hs.append(relu(zs[i]))
-    yhat=getYHat(zs[-1]) 
+    zs.append((np.dot(Ws[0], x).T + bs[0]).T) ######## Extra Transpose
+    hs.append(relu(zs[0]))
     
+    yhat=getYHat(zs[0]) 
+
     loss = getError(y, yhat)  #### Possible???
     
     # Return loss, pre-activations, post-activations, and predictions
@@ -113,12 +117,12 @@ def back_prop (x, y, weightsAndBiases, alpha = 0.01):
     dJdbs = copy.deepcopy(bs)  # Gradients w.r.t. biases    # Just for dimentions, deepcopy
 
     g = (yhat - y)
-    for i in range(NUM_HIDDEN_LAYERS -1, -1, -1):  
-        g = g*relu_d(zs[i])
-        dJdbs[i] = np.mean(g, axis=1)
-        dJdWs[i] = np.dot(g, hs[i].T) + alpha*Ws[i]/len(x[0]) 
-        g = np.dot(Ws[i].T,g)
-    print(np.mean(dJdWs[-1]))
+    dJdWs[1] = np.dot(g, hs[0].T) 
+    dJdbs[1] = np.mean(g, axis=1)
+    g = g*relu_d(zs[0])
+    dJdWs[0] = np.dot(g, x.T)
+    dJdbs[0] = np.mean(g, axis=1)
+    
     # Concatenate gradients
     return np.hstack([ dJdW.flatten() for dJdW in dJdWs ] + [ dJdb.flatten() for dJdb in dJdbs ]) 
 
