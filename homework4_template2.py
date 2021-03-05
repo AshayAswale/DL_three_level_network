@@ -82,6 +82,7 @@ def getYHat(zs):
     exp_z = np.exp(zs)
     exp_z_sums = np.sum(exp_z, axis=0)
     y_hat = (exp_z/exp_z_sums)
+    # print(y_hat.shape)
     return y_hat
 
 #Checked
@@ -106,28 +107,33 @@ def forward_prop (x, y, weightsAndBiases):
    
 def back_prop (x, y, weightsAndBiases, alpha = 0.01):
     loss, zs, hs, yhat = forward_prop(x, y, weightsAndBiases)
+    # print(loss)
     Ws, bs = unpack(weightsAndBiases)
 
-    dJdWs = copy.deepcopy(Ws)  # Gradients w.r.t. weights   # Just for dimentions, deepcopy
-    dJdbs = copy.deepcopy(bs)  # Gradients w.r.t. biases    # Just for dimentions, deepcopy
+    dJdWs = []  # Gradients w.r.t. weights  
+    dJdbs = []  # Gradients w.r.t. biases   
 
     g = (yhat - y)
-    g = g*relu_d(zs[0])
-    dJdWs[1] = np.dot(g, hs[0].T) 
-    dJdbs[1] = np.mean(g, axis=1) 
-    g = np.dot(Ws[1].T, g)
-    g = g*relu_d(zs[0])
-    dJdWs[0] = np.dot(g, x.T) + alpha*Ws[0]/len(x[0])
-    dJdbs[0] = np.mean(g, axis=1) 
+    dJdWs.append( np.dot(g, hs[0].T) )
+    dJdbs.append( np.mean(g, axis=1) )
     
+    g = (np.dot(g.T, Ws[1])*(relu_d(zs[0]).T)).T
+    dJdWs.append( np.dot(g, x.T) )#+ alpha*Ws[0]/len(x[0]))    
+    dJdbs.append( np.mean(g, axis=1) )
+
+    dJdWs.reverse()
+    dJdbs.reverse()
+
+    # print(dJdWs)
+
     # Concatenate gradients
     return np.hstack([ dJdW.flatten() for dJdW in dJdWs ] + [ dJdb.flatten() for dJdb in dJdbs ]) 
 
 
 def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
 
-    no_data = X_tr.shape[0]
-    no_features = X_tr.shape[1]
+    no_data = X_tr.shape[1]
+    no_features = X_tr.shape[0]
     X_tr_raw = X_tr
     y_tr_raw = y_tr
     vald_perct = 80
@@ -137,7 +143,7 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
 
     # Randomizing the data
     randint = (random.randint(1, 99))
-    random_rearrange(X_tr, y_tr, randint) #seed can be any random number
+    # random_rearrange(X_tr, y_tr, randint) #seed can be any random number
 
     ###############################
     #### Final Training Tuning ####
@@ -149,16 +155,16 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
     #     n_squig, eps, alpha, epochs = double_cross_validation(X_tr, y_tr)
     # else:
     #     print("Training using pretuned hyperparameters")
-    n_squig, eps, alpha, epochs = 160, 0.1, 0.05, 500
+    n_squig, eps, alpha, epochs = 160, 0.1, 0.05, 100
 
 
-    X_tr = X_tr_raw[0:vald_num]
-    X_tr_vald = X_tr_raw[vald_num:]
-    y_tr = y_tr_raw[0:vald_num]
-    y_tr_vald = y_tr_raw[vald_num:]
+    X_tr = X_tr_raw[:,0:vald_num]
+    X_tr_vald = X_tr_raw[:,vald_num:]
+    y_tr = y_tr_raw[:,0:vald_num]
+    y_tr_vald = y_tr_raw[:,vald_num:]
 
 
-    no_data = X_tr.shape[0]
+    no_data = X_tr.shape[1]
 
     for epoch in range(0, epochs):
         print("Epoch:", epoch)
@@ -170,18 +176,19 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
         while(data_remain):
             # print(i)
             i+=1
-            X_tr_temp = X_tr[n_curr:(min(n_next, no_data))]
-            y_tr_temp = y_tr[n_curr:(min(n_next, no_data))]
+            X_tr_temp = X_tr[:,n_curr:(min(n_next, no_data))]
+            y_tr_temp = y_tr[:,n_curr:(min(n_next, no_data))]
             n_curr = n_next
             n_next += n_squig
 
             data_remain = True if n_next<no_data else False
             
             dwdbs = back_prop(X_tr, y_tr, weightsAndBiases, alpha)
-            print(np.mean(dwdbs))
+            # print(np.mean(dwdbs))
             # print(weightsAndBiases)
             # print(dwdbs)
             weightsAndBiases -= eps*dwdbs
+            print(dwdbs)
             # print(weightsAndBiases)
             # exit()
             
@@ -191,13 +198,14 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
         
 
 def test_data(X_te, y_te, weightsAndBiases):
-    y_te_raw = np.argmax(y_te, axis=1)
+    y_te_raw = np.argmax(y_te, axis=0)
+
     loss, zs, hs, y_hat = forward_prop(X_te, y_te, weightsAndBiases)
     
-    y_cat = np.argmax(y_hat, axis=1)
+    y_cat = np.argmax(y_hat, axis=0)
     err_mat = y_cat - y_te_raw
     count = np.count_nonzero(err_mat == 0)
-    no_of_data = y_te.shape[0]
+    no_of_data = y_te.shape[1]
     perct = count/no_of_data*100
 
     return loss, perct
@@ -307,6 +315,7 @@ if __name__ == "__main__":
     a = []
 
     # Perform gradient check on random training examples
+    # test_data(np.atleast_2d(trainX[:,0:5]), np.atleast_2d(trainY[:,0:5]), weightsAndBiases)
     print(scipy.optimize.check_grad(lambda wab: forward_prop(np.atleast_2d(trainX[:,0:5]), np.atleast_2d(trainY[:,0:5]), wab)[0], \
                                     lambda wab: back_prop(np.atleast_2d(testX[:,0:5]), np.atleast_2d(testY[:,0:5]), wab), \
                                     weightsAndBiases))
