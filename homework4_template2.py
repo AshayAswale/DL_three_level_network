@@ -84,14 +84,10 @@ def getYHat(zs):
     y_hat = (exp_z/exp_z_sums)
     return y_hat
 
-### Possible Bug!!!!!!!!
+#Checked
 def getError(y_te, y_hat):
-    cee = (-(np.sum(y_te*np.log(y_hat)))/y_hat.shape[1])
-    ### THIS OR THAT????
-    no_data = y_te.shape[1]
-    err_mat = np.dot(y_te.T, np.log(y_hat))
-    err = -np.sum(err_mat)/no_data
-    return err
+    cee = (-(np.sum(y_te*np.log(y_hat))) /y_hat.shape[1])
+    return cee
 
 def forward_prop (x, y, weightsAndBiases):
     Ws, bs = unpack(weightsAndBiases)
@@ -99,9 +95,8 @@ def forward_prop (x, y, weightsAndBiases):
     zs=[]
     hs=[] 
     
-    zs.append((np.dot(Ws[0], x).T + bs[0]).T) ######## Extra Transpose
+    zs.append((np.dot(      Ws[0],   x).T + bs[0]).T) ######## Extra Transpose
     hs.append(relu(zs[0]))
-    
     yhat=getYHat(zs[0]) 
 
     loss = getError(y, yhat)  #### Possible???
@@ -117,11 +112,13 @@ def back_prop (x, y, weightsAndBiases, alpha = 0.01):
     dJdbs = copy.deepcopy(bs)  # Gradients w.r.t. biases    # Just for dimentions, deepcopy
 
     g = (yhat - y)
-    dJdWs[1] = np.dot(g, hs[0].T) 
-    dJdbs[1] = np.mean(g, axis=1)
     g = g*relu_d(zs[0])
-    dJdWs[0] = np.dot(g, x.T)
-    dJdbs[0] = np.mean(g, axis=1)
+    dJdWs[1] = np.dot(g, hs[0].T) 
+    dJdbs[1] = np.mean(g, axis=1) 
+    g = np.dot(Ws[1].T, g)
+    g = g*relu_d(zs[0])
+    dJdWs[0] = np.dot(g, x.T) + alpha*Ws[0]/len(x[0])
+    dJdbs[0] = np.mean(g, axis=1) 
     
     # Concatenate gradients
     return np.hstack([ dJdW.flatten() for dJdW in dJdWs ] + [ dJdb.flatten() for dJdb in dJdbs ]) 
@@ -286,11 +283,14 @@ def loadDataset():
     
     y_tr = (np.zeros([X_tr_raw.shape[0], NUM_OUTPUT])).T
     y_tr_raw = (np.atleast_2d(y_tr_raw))
-    np.put_along_axis(y_tr, y_tr_raw, 1, axis=1)
+    np.put_along_axis(y_tr, y_tr_raw, 1, axis=0)
     
     y_te = (np.zeros([X_te_raw.shape[0], NUM_OUTPUT])).T
     y_te_raw = (np.atleast_2d(y_te_raw))
-    np.put_along_axis(y_te, y_te_raw, 1, axis=1)
+    np.put_along_axis(y_te, y_te_raw, 1, axis=0)
+    # print(X_te_raw[:,0:5].shape)
+    # print(X_te[:,0:5].shape)
+    # exit()
     return X_te, y_te, X_tr, y_tr
 
 
@@ -303,6 +303,8 @@ if __name__ == "__main__":
     # Initialize weights and biases randomly
     weightsAndBiases = initWeightsAndBiases()
     trainX, trainY, testX, testY = loadDataset()
+    
+    a = []
 
     # Perform gradient check on random training examples
     print(scipy.optimize.check_grad(lambda wab: forward_prop(np.atleast_2d(trainX[:,0:5]), np.atleast_2d(trainY[:,0:5]), wab)[0], \
