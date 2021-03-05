@@ -80,6 +80,7 @@ def relu_d(z):
 #Checked
 def getYHat(zs):
     exp_z = np.exp(zs)
+    # print(zs.shape)
     exp_z_sums = np.sum(exp_z, axis=0)
     y_hat = (exp_z/exp_z_sums)
     # print(y_hat.shape)
@@ -96,9 +97,10 @@ def forward_prop (x, y, weightsAndBiases):
     zs=[]
     hs=[] 
     
-    zs.append((np.dot(      Ws[0],   x).T + bs[0]).T) ######## Extra Transpose
+    zs.append((np.dot( Ws[0], x).T + bs[0]).T) ######## Extra Transpose
     hs.append(relu(zs[0]))
-    yhat=getYHat(zs[0]) 
+    zs.append((np.dot( Ws[1], hs[0]).T + bs[1]).T) ######## Extra Transpose
+    yhat=getYHat(zs[1]) 
 
     loss = getError(y, yhat)  #### Possible???
     
@@ -116,15 +118,13 @@ def back_prop (x, y, weightsAndBiases, alpha = 0.01):
     g = (yhat - y)
     dJdWs.append( np.dot(g, hs[0].T) )
     dJdbs.append( np.mean(g, axis=1) )
-    
+
     g = (np.dot(g.T, Ws[1])*(relu_d(zs[0]).T)).T
     dJdWs.append( np.dot(g, x.T) )#+ alpha*Ws[0]/len(x[0]))    
     dJdbs.append( np.mean(g, axis=1) )
 
     dJdWs.reverse()
     dJdbs.reverse()
-
-    # print(dJdWs)
 
     # Concatenate gradients
     return np.hstack([ dJdW.flatten() for dJdW in dJdWs ] + [ dJdb.flatten() for dJdb in dJdbs ]) 
@@ -155,7 +155,7 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
     #     n_squig, eps, alpha, epochs = double_cross_validation(X_tr, y_tr)
     # else:
     #     print("Training using pretuned hyperparameters")
-    n_squig, eps, alpha, epochs = 160, 0.1, 0.05, 100
+    n_squig, eps, alpha, epochs = 160, 0.01, 0.05, 100
 
 
     X_tr = X_tr_raw[:,0:vald_num]
@@ -188,7 +188,7 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
             # print(weightsAndBiases)
             # print(dwdbs)
             weightsAndBiases -= eps*dwdbs
-            print(dwdbs)
+            # print(dwdbs)
             # print(weightsAndBiases)
             # exit()
             
@@ -199,7 +199,6 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
 
 def test_data(X_te, y_te, weightsAndBiases):
     y_te_raw = np.argmax(y_te, axis=0)
-
     loss, zs, hs, y_hat = forward_prop(X_te, y_te, weightsAndBiases)
     
     y_cat = np.argmax(y_hat, axis=0)
@@ -285,7 +284,7 @@ def loadDataset():
 
     no_data = X_tr_raw.shape[0]
 
-    brightness_value = 256
+    brightness_value = 255
     X_te = (X_te_raw/brightness_value).T
     X_tr = (X_tr_raw/brightness_value).T
     
