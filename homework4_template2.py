@@ -120,7 +120,8 @@ def back_prop (x, y, weightsAndBiases, alpha = 0.01):
     dJdbs.append( np.mean(g, axis=1) )
 
     g = (np.dot(g.T, Ws[1])*(relu_d(zs[0]).T)).T
-    dJdWs.append( np.dot(g, x.T) )#+ alpha*Ws[0]/len(x[0]))    
+    # print(zs[0])
+    dJdWs.append( np.dot(g, x.T) + alpha*Ws[0]/len(x[0]))    
     dJdbs.append( np.mean(g, axis=1) )
 
     dJdWs.reverse()
@@ -145,6 +146,13 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
     randint = (random.randint(1, 99))
     # random_rearrange(X_tr, y_tr, randint) #seed can be any random number
 
+
+    X_tr = X_tr_raw[:,0:vald_num]
+    X_tr_vald = X_tr_raw[:,vald_num:]
+    y_tr = y_tr_raw[:,0:vald_num]
+    y_tr_vald = y_tr_raw[:,vald_num:]
+
+
     ###############################
     #### Final Training Tuning ####
     ###############################
@@ -155,14 +163,7 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
     #     n_squig, eps, alpha, epochs = double_cross_validation(X_tr, y_tr)
     # else:
     #     print("Training using pretuned hyperparameters")
-    n_squig, eps, alpha, epochs = 160, 0.01, 0.05, 100
-
-
-    X_tr = X_tr_raw[:,0:vald_num]
-    X_tr_vald = X_tr_raw[:,vald_num:]
-    y_tr = y_tr_raw[:,0:vald_num]
-    y_tr_vald = y_tr_raw[:,vald_num:]
-
+    n_squig, eps, alpha, epochs = 10, 0.01, 0.05, 100
 
     no_data = X_tr.shape[1]
 
@@ -177,13 +178,17 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
             # print(i)
             i+=1
             X_tr_temp = X_tr[:,n_curr:(min(n_next, no_data))]
+            # print(X_tr_temp.shape)
             y_tr_temp = y_tr[:,n_curr:(min(n_next, no_data))]
             n_curr = n_next
             n_next += n_squig
 
             data_remain = True if n_next<no_data else False
             
-            dwdbs = back_prop(X_tr, y_tr, weightsAndBiases, alpha)
+            dwdbs = back_prop(X_tr_temp, y_tr_temp, weightsAndBiases, alpha)
+            # ws, bs = unpack(weightsAndBiases)
+            # print(bs[0])
+            # print(b[0])
             # print(np.mean(dwdbs))
             # print(weightsAndBiases)
             # print(dwdbs)
@@ -194,7 +199,7 @@ def stoch_grad_regression (X_tr, y_tr, weightsAndBiases):
             
             
             
-    return w,b
+    return weightsAndBiases
         
 
 def test_data(X_te, y_te, weightsAndBiases):
@@ -318,7 +323,7 @@ if __name__ == "__main__":
     print(scipy.optimize.check_grad(lambda wab: forward_prop(np.atleast_2d(trainX[:,0:5]), np.atleast_2d(trainY[:,0:5]), wab)[0], \
                                     lambda wab: back_prop(np.atleast_2d(testX[:,0:5]), np.atleast_2d(testY[:,0:5]), wab), \
                                     weightsAndBiases))
-    # stoch_grad_regression(trainX, trainY, weightsAndBiases)
+    stoch_grad_regression(trainX, trainY, weightsAndBiases)
 
     # weightsAndBiases, trajectory = train(trainX, trainY, weightsAndBiases, testX, testY)
     
